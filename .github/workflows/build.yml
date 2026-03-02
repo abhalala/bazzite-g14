@@ -384,6 +384,17 @@ jobs:
     secrets: inherit
     uses: ./.github/workflows/generate_release.yml
 
+  build-iso:
+    name: Build ISOs
+    needs: [push-ghcr]
+    if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    secrets: inherit
+    uses: ./.github/workflows/build_iso.yml
+
   kickoff_bazzite_dx:
     runs-on: ubuntu-24.04
     needs: [generate_release]

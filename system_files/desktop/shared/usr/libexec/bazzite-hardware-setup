@@ -6,7 +6,7 @@ IMAGE_BRANCH=$(jq -r '."image-branch"' < $IMAGE_INFO)
 FEDORA_VERSION=$(jq -r '."fedora-version"' < $IMAGE_INFO)
 
 # SCRIPT VERSION
-HWS_VER=68
+HWS_VER=69
 HWS_VER_FILE="/etc/bazzite/hws_version"
 HWS_VER_RAN=$(cat $HWS_VER_FILE)
 
@@ -134,6 +134,23 @@ if [[ ! $KARGS =~ "disable_ertm" ]]; then
   NEEDED_KARGS+=("--append-if-missing=bluetooth.disable_ertm=1")
 fi
 
+# G14-SPECIFIC: Fix random freezes on Zephyrus G14 (Ryzen 6900HS / Radeon 6700S)
+# Applied unconditionally because this entire image is built for G14 hardware.
+if [[ ! $KARGS =~ "amd_pstate=active" ]]; then
+  echo "Adding amd_pstate=active for AMD P-state driver"
+  NEEDED_KARGS+=("--append-if-missing=amd_pstate=active")
+fi
+
+if [[ ! $KARGS =~ "amdgpu.dcdebugmask=0x10" ]]; then
+  echo "Adding amdgpu.dcdebugmask=0x10 to prevent display engine freezes"
+  NEEDED_KARGS+=("--append-if-missing=amdgpu.dcdebugmask=0x10")
+fi
+
+if [[ ! $KARGS =~ "cpufreq.default_governor=performance" ]]; then
+  echo "Adding cpufreq.default_governor=performance to prevent low-power state freezes"
+  NEEDED_KARGS+=("--append-if-missing=cpufreq.default_governor=performance")
+fi
+
 if [[ ! -f /etc/bazzite/fixups/preempt_cleanup2 && $KARGS =~ "preempt" ]]; then
   echo "Removing full preemption (once)"
   NEEDED_KARGS+=("--delete-if-present=preempt=full")
@@ -168,6 +185,13 @@ if [[ $IMAGE_NAME =~ "deck" || $IMAGE_NAME =~ "ally" ]]; then
     systemctl disable --now ryzenadj.service
   fi
   systemctl enable --now ds-inhibit.service
+fi
+
+# G14-SPECIFIC: Set throughput-performance-bazzite as default TuneD profile
+# Applied unconditionally because this entire image is built for G14 hardware.
+if ! tuned-adm active 2>/dev/null | grep -q "throughput-performance-bazzite"; then
+  echo "Setting throughput-performance-bazzite as default tuned profile"
+  tuned-adm profile throughput-performance-bazzite || true
 fi
 
 # ZRAM MINIMUM-FREE CONFIGURATION
