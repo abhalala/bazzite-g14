@@ -8,6 +8,7 @@ on:
         description: 'Release Branch (e.g., testing). Defaults to branch name.'
 permissions:
   contents: write
+  actions: read
 
 name: Generate Release
 jobs:
@@ -39,6 +40,23 @@ jobs:
           echo "title=${TITLE}" >> $GITHUB_OUTPUT
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
 
+      - name: Download ISO Artifacts
+        id: download-isos
+        continue-on-error: true
+        uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16 # v4.1.8
+        with:
+          path: iso-artifacts
+          merge-multiple: true
+
+      - name: Log ISO Artifact Status
+        run: |
+          if [ "${{ steps.download-isos.outcome }}" = "success" ]; then
+            echo "ISO artifacts downloaded successfully. Files to attach to release:"
+            find iso-artifacts -type f | sort
+          else
+            echo "No ISO artifacts found (workflow may have been triggered standalone). Release will be created without ISOs."
+          fi
+
       - name: Create Release
         uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
@@ -47,3 +65,4 @@ jobs:
           body_path: ./changelog.md
           make_latest: ${{ steps.get-target.outputs.target == 'stable' }}
           prerelease: ${{ steps.get-target.outputs.target != 'stable' }}
+          files: iso-artifacts/**
